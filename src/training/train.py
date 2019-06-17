@@ -75,6 +75,8 @@ import glob
 import os 
 import copy
 
+from tqdm import tqdm
+
 from PIL import Image
 from PIL import ImageFilter
 from PIL import ImageOps
@@ -1095,7 +1097,7 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',  
-    default = "/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_0", 
+    default = "/home/eacousineau/Downloads/dope/fat/mixed", 
     help='path to training data')
 
 parser.add_argument('--datatest', 
@@ -1183,7 +1185,7 @@ parser.add_argument('--nbupdates',
     otherwise uses the number of epochs')
 
 parser.add_argument('--datasize', 
-    default=16, #default=None, 
+    default=None, 
     help='randomly sample that number of entries in the dataset folder') 
 
 # Read the config but do not overwrite the args written 
@@ -1355,7 +1357,7 @@ def _runnetwork(epoch, loader, train=True):
     else:
         net.eval()
 
-    for batch_idx, targets in enumerate(_monitor(loader)):
+    for batch_idx, targets in enumerate(_monitor(tqdm(loader))):
 
         print("TMP: to(device)")
         data = Variable(targets['img'].to(device))
