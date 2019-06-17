@@ -92,7 +92,8 @@ import colorsys,math
 
 import warnings
 warnings.filterwarnings("ignore")
-os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 
 ##################################################
@@ -1313,8 +1314,12 @@ if not testingdata is None:
     print ("testing data: {} batches".format(len(testingdata)))
 print('load models')
 
-net = DopeNetwork(pretrained=opt.pretrained).cuda()
-net = torch.nn.DataParallel(net,device_ids=opt.gpuids).cuda()
+# devices = [torch.device("cuda:{}".format(index)) for index in opt.gpuids]
+# device = devices[0]
+device = torch.device("cpu")
+
+net = DopeNetwork(pretrained=opt.pretrained).to(device)
+# net = torch.nn.DataParallel(net,device_ids=[x.index for x in devices]).to(device)
 
 if opt.net != '':
     net.load_state_dict(torch.load(opt.net))
@@ -1340,14 +1345,14 @@ def _runnetwork(epoch, loader, train=True):
 
     for batch_idx, targets in enumerate(loader):
 
-        data = Variable(targets['img'].cuda())
+        data = Variable(targets['img'].to(device))
         
         output_belief, output_affinities = net(data)
                        
         if train:
             optimizer.zero_grad()
-        target_belief = Variable(targets['beliefs'].cuda())        
-        target_affinity = Variable(targets['affinities'].cuda())
+        target_belief = Variable(targets['beliefs'].to(device))        
+        target_affinity = Variable(targets['affinities'].to(device))
 
         loss = None
         
