@@ -1105,12 +1105,12 @@ parser.add_argument('--datatest',
     help='path to data testing set')
 
 parser.add_argument('--object', 
-    default="cracker", 
+    default="003_cracker_box_16k", 
     help='In the dataset which objet of interest')
 
 parser.add_argument('--workers', 
     type=int, 
-    default=1, # default=8,
+    default=0, # default=8,
     help='number of data loading workers')
 
 parser.add_argument('--batchsize', 
