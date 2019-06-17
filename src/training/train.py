@@ -46,13 +46,15 @@ This will create a folder called `train_soup` where the weights will be saved
 after each epoch. It will use the 8 gpus using pytorch data parallel. 
 """
 
-
 import argparse
 import ConfigParser
 import os
 import random
 import shutil
 import numpy as np 
+
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 import torch
 import torch.nn as nn
@@ -92,9 +94,6 @@ import colorsys,math
 
 import warnings
 warnings.filterwarnings("ignore")
-# os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4,5,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"]=""
-
 
 ##################################################
 # NEURAL NETWORK MODEL
@@ -437,7 +436,6 @@ class MultipleVertexJson(data.Dataset):
         return len(self.imgs)   
 
     def __getitem__(self, index):
-        print("get: {}".format(index))
         """
         Depending on how the data loader is configured,
         this will return the debug info with the cuboid drawn on it, 
@@ -1097,25 +1095,25 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',  
-    default = "/home/eacousineau/Downloads/dope/fat/single/002_master_chef_can_16k/kitchen_0", 
+    default = "/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_0", 
     help='path to training data')
 
 parser.add_argument('--datatest', 
-    default="/home/eacousineau/Downloads/dope/fat/single/002_master_chef_can_16k/kitchen_1", 
+    default="/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_1", 
     help='path to data testing set')
 
 parser.add_argument('--object', 
-    default="002_master_chef_can_16k", 
+    default="003_cracker_box_16k", 
     help='In the dataset which objet of interest')
 
 parser.add_argument('--workers', 
     type=int, 
-    default=0, # default=8,
+    default=8,
     help='number of data loading workers')
 
 parser.add_argument('--batchsize', 
     type=int, 
-    default=1,# default=128, 
+    default=16, #128, 
     help='input batch size')
 
 parser.add_argument('--imagesize', 
@@ -1125,7 +1123,7 @@ parser.add_argument('--imagesize',
 
 parser.add_argument('--lr', 
     type=float, 
-    default=0.001,# default=0.0001, 
+    default=0.0001,# default=0.0001, 
     help='learning rate, default=0.001')
 
 parser.add_argument('--noise', 
@@ -1185,7 +1183,7 @@ parser.add_argument('--nbupdates',
     otherwise uses the number of epochs')
 
 parser.add_argument('--datasize', 
-    default=2, #default=None, 
+    default=16, #default=None, 
     help='randomly sample that number of entries in the dataset folder') 
 
 # Read the config but do not overwrite the args written 
@@ -1273,7 +1271,7 @@ if not opt.data == "":
         batch_size = opt.batchsize, 
         shuffle = False,
         num_workers = opt.workers, 
-        pin_memory = True
+        pin_memory = False
         )
 
 if opt.save:
@@ -1305,10 +1303,10 @@ if not opt.datatest == "":
                                    transforms.Scale(opt.imagesize//8),
                 ]),
             ),
-        batch_size = opt.batchsize, 
+        batch_size = opt.batchsize / 2,
         shuffle = False,
         num_workers = opt.workers, 
-        pin_memory = True)
+        pin_memory = False)
 
 if not trainingdata is None:
     print('training data: {} batches'.format(len(trainingdata)))
@@ -1316,12 +1314,13 @@ if not testingdata is None:
     print ("testing data: {} batches".format(len(testingdata)))
 print('load models')
 
-# devices = [torch.device("cuda:{}".format(index)) for index in opt.gpuids]
-# device = devices[0]
-device = torch.device("cpu")
+devices = [torch.device("cuda:{}".format(index)) for index in opt.gpuids]
+device = devices[0]
+# device = torch.device("cpu")
 
 net = DopeNetwork(pretrained=opt.pretrained).to(device)
-# net = torch.nn.DataParallel(net,device_ids=[x.index for x in devices]).to(device)
+if device.type == "cuda":
+    net = torch.nn.DataParallel(net,device_ids=[x.index for x in devices]).to(device)
 
 if opt.net != '':
     net.load_state_dict(torch.load(opt.net))
@@ -1337,6 +1336,17 @@ with open (opt.outf+'/loss_test.csv','w') as file:
 
 nb_update_network = 0
 
+def _monitor(collection):
+    it = iter(collection)
+    try:
+        while True:
+            print("TMP: Next")
+            item = next(it)
+            print("TMP:  - Done")
+            yield item
+    except StopIteration:
+        pass
+
 def _runnetwork(epoch, loader, train=True):
     global nb_update_network
     # net
@@ -1345,12 +1355,15 @@ def _runnetwork(epoch, loader, train=True):
     else:
         net.eval()
 
-    for batch_idx, targets in enumerate(loader):
+    for batch_idx, targets in enumerate(_monitor(loader)):
 
+        print("TMP: to(device)")
         data = Variable(targets['img'].to(device))
         
+        print("TMP: inference")
         output_belief, output_affinities = net(data)
                        
+        print("TMP: more conversion")
         if train:
             optimizer.zero_grad()
         target_belief = Variable(targets['beliefs'].to(device))        
@@ -1358,6 +1371,7 @@ def _runnetwork(epoch, loader, train=True):
 
         loss = None
         
+        print("TMP: belief loss")
         # Belief maps loss
         for l in output_belief: #output, each belief map layers. 
             if loss is None:
@@ -1366,11 +1380,13 @@ def _runnetwork(epoch, loader, train=True):
                 loss_tmp = ((l - target_belief) * (l-target_belief)).mean()
                 loss += loss_tmp
         
+        print("TMP: affinity loss")
         # Affinities loss
         for l in output_affinities: #output, each belief map layers. 
             loss_tmp = ((l - target_affinity) * (l-target_affinity)).mean()
             loss += loss_tmp 
 
+        print("TMP: propagate")
         if train:
             loss.backward()
             optimizer.step()
@@ -1400,6 +1416,7 @@ def _runnetwork(epoch, loader, train=True):
 
         # break
         if not opt.nbupdates is None and nb_update_network > int(opt.nbupdates):
+            print("TMP: save")
             torch.save(net.state_dict(), '{}/net_{}.pth'.format(opt.outf, opt.namefile))
             break
 
