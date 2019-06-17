@@ -353,11 +353,11 @@ def loadimages(root):
     imgs = []
 
     def add_json_files(path,):
-        for imgpath in glob.glob(path+"/*.png"):
+        for imgpath in sorted(glob.glob(path+"/*.png")):
             if exists(imgpath) and exists(imgpath.replace('png',"json")):
                 imgs.append((imgpath,imgpath.replace(path,"").replace("/",""),
                     imgpath.replace('png',"json")))
-        for imgpath in glob.glob(path+"/*.jpg"):
+        for imgpath in sorted(glob.glob(path+"/*.jpg")):
             if exists(imgpath) and exists(imgpath.replace('jpg',"json")):
                 imgs.append((imgpath,imgpath.replace(path,"").replace("/",""),
                     imgpath.replace('jpg',"json")))
@@ -368,7 +368,7 @@ def loadimages(root):
         folders = [os.path.join(path, o) for o in os.listdir(path) 
                         if os.path.isdir(os.path.join(path,o))]
         if len(folders)>0:
-            for path_entry in folders:                
+            for path_entry in sorted(folders):                
                 explore(path_entry)
         else:
             add_json_files(path)
@@ -426,8 +426,8 @@ class MultipleVertexJson(data.Dataset):
 
         self.imgs = load_data(root)
 
-        # Shuffle the data, this is useful when we want to use a subset. 
-        np.random.shuffle(self.imgs)
+        # # Shuffle the data, this is useful when we want to use a subset. 
+        # np.random.shuffle(self.imgs)
 
     def __len__(self):
         # When limiting the number of data
@@ -437,6 +437,7 @@ class MultipleVertexJson(data.Dataset):
         return len(self.imgs)   
 
     def __getitem__(self, index):
+        print("get: {}".format(index))
         """
         Depending on how the data loader is configured,
         this will return the debug info with the cuboid drawn on it, 
@@ -1104,7 +1105,7 @@ parser.add_argument('--datatest',
     help='path to data testing set')
 
 parser.add_argument('--object', 
-    default=None, 
+    default="cracker", 
     help='In the dataset which objet of interest')
 
 parser.add_argument('--workers', 
@@ -1114,7 +1115,7 @@ parser.add_argument('--workers',
 
 parser.add_argument('--batchsize', 
     type=int, 
-    deafult=1,# default=128, 
+    default=1,# default=128, 
     help='input batch size')
 
 parser.add_argument('--imagesize', 
@@ -1152,16 +1153,16 @@ parser.add_argument('--epochs',
 
 parser.add_argument('--loginterval', 
     type=int, 
-    default=100)
+    default=1)
 
 parser.add_argument('--gpuids',
     nargs='+', 
     type=int, 
-    default=[], #default=[0], 
+    default=[0], 
     help='GPUs to use')
 
 parser.add_argument('--outf', 
-    default='tmp', 
+    default='cracker', 
     help='folder to output images and model checkpoints, it will \
     add a train_ in front of the name')
 
@@ -1170,7 +1171,7 @@ parser.add_argument('--sigma',
     help='keypoint creation size for sigma')
 
 parser.add_argument('--save', 
-    action="store_true", 
+    action="store_true",
     help='save a visual batch and quit, this is for\
     debugging purposes')
 
@@ -1269,7 +1270,7 @@ if not opt.data == "":
         )
     trainingdata = torch.utils.data.DataLoader(train_dataset,
         batch_size = opt.batchsize, 
-        shuffle = True,
+        shuffle = False,
         num_workers = opt.workers, 
         pin_memory = True
         )
@@ -1304,7 +1305,7 @@ if not opt.datatest == "":
                 ]),
             ),
         batch_size = opt.batchsize, 
-        shuffle = True,
+        shuffle = False,
         num_workers = opt.workers, 
         pin_memory = True)
 
