@@ -1095,11 +1095,11 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',  
-    default = "", 
+    default = "/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_0", 
     help='path to training data')
 
 parser.add_argument('--datatest', 
-    default="", 
+    default="/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_1", 
     help='path to data testing set')
 
 parser.add_argument('--object', 
@@ -1108,12 +1108,12 @@ parser.add_argument('--object',
 
 parser.add_argument('--workers', 
     type=int, 
-    default=8,
+    default=1, # default=8,
     help='number of data loading workers')
 
 parser.add_argument('--batchsize', 
     type=int, 
-    default=32, 
+    deafult=1,# default=128, 
     help='input batch size')
 
 parser.add_argument('--imagesize', 
@@ -1123,7 +1123,7 @@ parser.add_argument('--imagesize',
 
 parser.add_argument('--lr', 
     type=float, 
-    default=0.0001, 
+    default=0.01,# default=0.0001, 
     help='learning rate, default=0.001')
 
 parser.add_argument('--noise', 
@@ -1141,6 +1141,7 @@ parser.add_argument('--namefile',
 
 parser.add_argument('--manualseed', 
     type=int, 
+    default=0,
     help='manual seed')
 
 parser.add_argument('--epochs', 
@@ -1155,7 +1156,7 @@ parser.add_argument('--loginterval',
 parser.add_argument('--gpuids',
     nargs='+', 
     type=int, 
-    default=[0], 
+    default=[], #default=[0], 
     help='GPUs to use')
 
 parser.add_argument('--outf', 
@@ -1182,7 +1183,7 @@ parser.add_argument('--nbupdates',
     otherwise uses the number of epochs')
 
 parser.add_argument('--datasize', 
-    default=None, 
+    default=10, #default=None, 
     help='randomly sample that number of entries in the dataset folder') 
 
 # Read the config but do not overwrite the args written 
