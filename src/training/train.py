@@ -1097,15 +1097,15 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',  
-    default = "/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_0", 
+    default = "/home/eacousineau/Downloads/dope/fat/single/002_master_chef_can_16k/kitchen_0", 
     help='path to training data')
 
 parser.add_argument('--datatest', 
-    default="/home/eacousineau/Downloads/dope/fat/single/003_cracker_box_16k/kitchen_1", 
+    default="/home/eacousineau/Downloads/dope/fat/single/002_master_chef_can_16k/kitchen_1", 
     help='path to data testing set')
 
 parser.add_argument('--object', 
-    default="003_cracker_box_16k", 
+    default="002_master_chef_can_16k", 
     help='In the dataset which objet of interest')
 
 parser.add_argument('--workers', 
@@ -1125,7 +1125,7 @@ parser.add_argument('--imagesize',
 
 parser.add_argument('--lr', 
     type=float, 
-    default=0.01,# default=0.0001, 
+    default=0.001,# default=0.0001, 
     help='learning rate, default=0.001')
 
 parser.add_argument('--noise', 
@@ -1185,7 +1185,7 @@ parser.add_argument('--nbupdates',
     otherwise uses the number of epochs')
 
 parser.add_argument('--datasize', 
-    default=10, #default=None, 
+    default=2, #default=None, 
     help='randomly sample that number of entries in the dataset folder') 
 
 # Read the config but do not overwrite the args written 
