@@ -1227,6 +1227,7 @@ with open (opt.outf+'/header.txt','w') as file:
 
 # set the manual seed. 
 random.seed(opt.manualseed)
+np.random.seed(opt.manualseed)
 torch.manual_seed(opt.manualseed)
 torch.cuda.manual_seed_all(opt.manualseed)
 
