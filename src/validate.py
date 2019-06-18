@@ -20,6 +20,7 @@ from tqdm import tqdm
 import pyassimp
 
 import torchvision.transforms as transforms
+from pysixd.inout import load_ply
 
 # Import DOPE code
 g_path2package = dirname(dirname(realpath(__file__)))
@@ -30,26 +31,22 @@ weights_dir = "/home/eacousineau/Downloads/dope/weights"
 
 from cuboid import *
 from detector import *
-
 from train import MultipleVertexJson
 
 
-def get_obj_file(model):
-    return "/home/eacousineau/proj/tri/proj/perception/Dataset_Utilities/nvdu/data/ycb/aligned_cm/{}/google_16k/textured.obj".format(model)  # noqa
+def get_mesh_file(model):
+    return "/home/eacousineau/proj/tri/proj/perception/Dataset_Utilities/nvdu/data/ycb/aligned_cm/{}/google_16k/textured.ply".format(model)  # noqa
 
 
 def load_model(filename):
-    print(filename)
-    scene = pyassimp.load(filename)
-    mesh = scene.meshes[0]
-    model = {'pts': mesh.vertices,  # sixd_toolkit wants mm.
-             'faces': mesh.faces,
-             'texture_uv': mesh.texturecoords,
-             'normals': mesh.normals,
-             }
-    if len(mesh.colors) > 0:
-        model["colors"], = mesh.colors
-    return model
+    assert filename.endswith(".obj")
+    v = []
+    with open(filename) as f:
+        for line in f.readline():
+            if not f.startswith("v "):
+                continue
+            v.append([float(x) for x in line[2:].split(" ")])
+    return np.asarray(v)
 
 
 def run_validation(params):
@@ -82,7 +79,7 @@ def run_validation(params):
 
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
-        model_6d = load_model(get_obj_file(model))
+        model_6d = load_model(get_mesh_file(model))
 
         models[model] =\
             ModelData(
