@@ -19,3 +19,5 @@ tqdm==4.25.0
 # Exploratory
 notebook==5.7.8
 jupyter==1.0.0
+git+https://github.com/EricCousineau-TRI/sixd_toolkit@dd610c4
+pyassimp==4.1.4

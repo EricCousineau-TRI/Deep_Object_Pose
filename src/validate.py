@@ -17,8 +17,7 @@ import cv2
 import yaml
 
 from tqdm import tqdm
-from PIL import Image
-from PIL import ImageDraw
+import pyassimp
 
 import torchvision.transforms as transforms
 
@@ -33,6 +32,24 @@ from cuboid import *
 from detector import *
 
 from train import MultipleVertexJson
+
+
+def get_obj_file(model):
+    return "/home/eacousineau/proj/tri/proj/perception/Dataset_Utilities/nvdu/data/ycb/aligned_cm/{}/google_16k/textured.obj".format(model)  # noqa
+
+
+def load_model(filename):
+    print(filename)
+    scene = pyassimp.load(filename)
+    mesh = scene.meshes[0]
+    model = {'pts': mesh.vertices,  # sixd_toolkit wants mm.
+             'faces': mesh.faces,
+             'texture_uv': mesh.texturecoords,
+             'normals': mesh.normals,
+             }
+    if len(mesh.colors) > 0:
+        model["colors"], = mesh.colors
+    return model
 
 
 def run_validation(params):
@@ -65,13 +82,15 @@ def run_validation(params):
 
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
+        model_6d = load_model(get_obj_file(model))
+
         models[model] =\
             ModelData(
                 model, 
                 join(weights_dir, params['weights'][model])
             )
         models[model].load_net_model()
-        
+
         draw_colors[model] = \
             tuple(params["draw_colors"][model])
         pnp_solvers[model] = \
@@ -136,4 +155,7 @@ if __name__ == "__main__":
         params = yaml.safe_load(stream)
     print('    Parameters loaded.')
 
-    run_validation(params)
+    # run_validation(params)
+    import sys, trace
+    tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr", sys.prefix])
+    tracer.runfunc(run_validation, params)
