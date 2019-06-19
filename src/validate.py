@@ -135,6 +135,22 @@ class Comparison(object):
         ), dtype=self.dtype)
 
 
+def get_dataset(model):
+    data_size = 1000
+    return MultipleVertexJson(
+        root="/home/eacousineau/Downloads/dope/fat/mixed/kitchen_0",
+        objectsofinterest=model,
+        keep_orientation=True,
+        noise=0,
+        sigma=3,
+        data_size=data_size,
+        transform=transforms.Compose([]),
+        test=True,
+        random_translation=(0,0),
+        random_rotation=0,
+        )
+
+
 def run_validation(params):
 
     models = {}
@@ -184,17 +200,7 @@ def run_validation(params):
                 dist_coeffs=dist_coeffs
             )
 
-        data_size = 1000
-        dataset = MultipleVertexJson(
-            root="/home/eacousineau/Downloads/dope/fat/mixed/kitchen_0",
-            objectsofinterest=model,
-            keep_orientation=True,
-            noise=0,
-            sigma=3,
-            data_size=data_size,
-            transform=transforms.Compose([]),
-            test=True,
-            )
+        dataset = get_dataset(model)
 
         def is_zero(x):
             return x.shape[0] == 1 and (x == 0).all()
@@ -205,7 +211,7 @@ def run_validation(params):
         comp_list = []
 
         # All translations are in centimeters.
-        indices = range(data_size)
+        indices = range(len(dataset))
         for index in tqdm(indices):
             print(index)
             target = dataset[index]
@@ -245,7 +251,7 @@ def run_validation(params):
             comp_list.append(comp)
             # Just for kicks:
             # TODO(eric): Figure out why this is so bad?
-            print(comp.compute_accuracy(pose_error, 30))
+            print(comp.compute_metrics(pose_error, 30))
 
     save_file = join(g_path2package, "comp_list.pkl")
     with open(save_file, "w") as f:
