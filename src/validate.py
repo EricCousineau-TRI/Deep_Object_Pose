@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2018 NVIDIA Corporation. All rights reserved.
-# This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
-# https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
-
 """
 YWARARAWR
 """
 
-from __future__ import print_function
+from __future__ import print_function, division
 from os.path import dirname, realpath, join
 import random
 import sys
@@ -50,6 +46,58 @@ def load_model_cm(filename):
                 continue
             v.append([float(x) for x in line[2:].split(" ")])
     return {"pts": np.asarray(v)}
+
+
+class Pose(object):
+    # Intended to show pose of model in camera frame.
+    def __init__(self, R, t_cm):
+        self.R = R
+        self.t_cm = t_cm
+
+
+class Comparison(object):
+    def __init__(self, pose_est_list, pose_gt_list):
+        self.pose_est_list = pose_est_list
+        self.pose_gt_list = pose_gt_list
+        self.num_est = len(pose_est_list)
+        self.num_gt = len(pose_gt_list)
+        self.est_to_gt_indices = None
+
+    def greedy_match(self, pose_error_func):
+        # Greedy match.
+        self.est_to_gt_indices = np.array([-1] * self.num_est, dtype=int)
+        matched_gt = np.zeros(self.num_est, dtype=bool)
+        for i_est, pose_est in enumerate(self.pose_est_list):
+            if np.all(matched_gt):
+                break
+            dist_to_gt = np.array([
+                pose_error_func(pose_est, pose_gt)
+                for pose_gt in self.pose_gt_list])
+            dist_to_gt[matched_gt] = np.inf
+            i_gt = np.argmin(dist_to_gt)
+            self.est_to_gt_indices[i_gt] = i_gt
+            matched_gt[i_gt] = True
+
+    def compute_accuracy(self, pose_error_func, error_threshold):
+        assert self.est_to_gt_indices is not None
+        est_accurate = np.zeros(self.num_est, dtype=bool)
+        for i_est, pose_est in enumerate(self.pose_est_list):
+            i_gt = self.est_to_gt_indices[i_est]
+            if i_gt == -1:
+                continue
+            pose_gt = self.pose_gt_list[i_gt]
+            pose_error = pose_error_func(pose_est, pose_gt)
+            if pose_error < error_threshold:
+                est_accurate[i_est] = True
+        num_tp = np.sum(est_accurate)
+        num_fp = self.num_est - num_tp
+        num_fn = np.sum(self.est_to_gt_indices == -1)
+        # TODO(eric): Er... How do I compute true negatives???
+        # For now, just gonna do F1 score...
+        precision = num_tp / (num_tp + num_fp)
+        recall = num_tp / (num_tp + num_fn)
+        f1_score = 2 * precision * recall / (precision + recall)
+        return f1_score
 
 
 def run_validation(params):
@@ -116,6 +164,11 @@ def run_validation(params):
         def is_zero(x):
             return x.shape[0] == 1 and (x == 0).all()
 
+        def pose_error(X_est, X_gt):
+            return add_metric(X_est.R, X_est.t_cm, X_gt.R, X_gt.t_cm, model_cm)
+
+        comp_list = []
+
         # All translations are in centimeters.
         indices = [32, 33]
         for index in indices:# tqdm(range(data_size)):
@@ -140,27 +193,23 @@ def run_validation(params):
             R_gt_list = [
                 np.array(Matrix33.from_quaternion(q_xyzw))
                 for q_xyzw in target["rot_quaternions"].numpy()]
+            pose_gt_list = []
+            for R, t_cm in zip(R_gt_list, t_cm_gt_list):
+                pose_gt_list.append(Pose(R, t_cm))
 
-            num_est = len(results)
-            est_to_gt_indices = np.array([-1] * num_est, dtype=int)
-            accurate = np.zeros(num_est, dtype=bool)
-
-            # Get stuff
-            for i, result in enumerate(results):
-                if result["location"] is None:
-                    continue
-                t_cm_est = np.asarray(result["location"])
-                q_xyzw_est = np.asarray(result["quaternion"])
+            est_list = [est for est in results if est["location"] is not None]
+            pose_est_list = []
+            for est in est_list:
+                t_cm_est = np.asarray(est["location"])
+                q_xyzw_est = np.asarray(est["quaternion"])
                 R_est = np.array(Matrix33.from_quaternion(q_xyzw_est))
+                pose_est_list.append(Pose(R=R_est, t_cm=t_cm_est))
 
-                dist_to_gt = np.array([
-                    add_metric(R_est, t_cm_est, R_gt, t_cm_gt, model_cm)
-                    for R_gt, t_cm_gt in zip(R_gt_list, t_cm_gt_list)])
-                matched = est_to_gt_indices != -1
-                dist_to_gt[matched] = np.inf
-                i_gt = np.argmin(dist_to_gt)
-                est_to_gt_indices[i] = i_gt
-                print(i, dist_to_gt)
+            comp = Comparison(pose_est_list, pose_gt_list)
+            comp.greedy_match(pose_error)
+            comp_list.append(comp)
+            # Just for kicks:
+            print(comp.compute_accuracy(pose_error, 30))
 
 
 if __name__ == "__main__":
