@@ -10,6 +10,7 @@ YWARARAWR
 
 from __future__ import print_function
 from os.path import dirname, realpath, join
+import random
 import sys
 
 import numpy as np
@@ -44,7 +45,7 @@ def load_model_cm(filename):
     assert filename.endswith(".obj")
     v = []
     with open(filename) as f:
-        for line in f.readline():
+        for line in f.readlines():
             if not line.startswith("v "):
                 continue
             v.append([float(x) for x in line[2:].split(" ")])
@@ -81,7 +82,7 @@ def run_validation(params):
 
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
-        model_6d = load_model_cm(get_mesh_file(model))
+        model_cm = load_model_cm(get_mesh_file(model))
 
         models[model] =\
             ModelData(
@@ -116,7 +117,8 @@ def run_validation(params):
             return x.shape[0] == 1 and (x == 0).all()
 
         # All translations are in centimeters.
-        for index in range(data_size):# tqdm(range(data_size)):
+        indices = [32, 33]
+        for index in indices:# tqdm(range(data_size)):
             print(index)
             target = dataset[index]
             # Yawr
@@ -134,21 +136,43 @@ def run_validation(params):
                         )
 
             # https://research.nvidia.com/sites/default/files/pubs/2018-06_Falling-Things/readme_0.txt
-            q_xyzw_gt_list, t_cm_gt_list = target["rot_quaternions"], target["translations"]
-            R_gt_list = [Matrix33.from_quaternion(q_xyzw) for q_xyzw in q_xyzw_gt_list]
+            t_cm_gt_list = target["translations"].numpy()
+            R_gt_list = [
+                np.array(Matrix33.from_quaternion(q_xyzw))
+                for q_xyzw in target["rot_quaternions"].numpy()]
+
+            num_est = len(results)
+            est_to_gt_indices = np.array([-1] * num_est, dtype=int)
+            accurate = np.zeros(num_est, dtype=bool)
 
             # Get stuff
-            for i_r, result in enumerate(results):
+            for i, result in enumerate(results):
                 if result["location"] is None:
                     continue
-                t_cm_est = result["location"]
-                q_xyzw_est = result["quaternion"]
-                R_est = Matrix33.from_quaternion(q_xyzw_est)
-                print(i_r, t_cm_est, R_est)
+                t_cm_est = np.asarray(result["location"])
+                q_xyzw_est = np.asarray(result["quaternion"])
+                R_est = np.array(Matrix33.from_quaternion(q_xyzw_est))
+
+                dist_to_gt = np.array([
+                    add_metric(R_est, t_cm_est, R_gt, t_cm_gt, model_cm)
+                    for R_gt, t_cm_gt in zip(R_gt_list, t_cm_gt_list)])
+                matched = est_to_gt_indices != -1
+                dist_to_gt[matched] = np.inf
+                i_gt = np.argmin(dist_to_gt)
+                est_to_gt_indices[i] = i_gt
+                print(i, dist_to_gt)
 
 
 if __name__ == "__main__":
     sys.stdout = sys.stderr
+
+    # set the manual seed.
+    seed = 0
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
     config_name = "config_validate.yaml"
     yaml_path = g_path2package + '/config/{}'.format(config_name)
     print("Loading DOPE parameters from '{}'...".format(yaml_path))
