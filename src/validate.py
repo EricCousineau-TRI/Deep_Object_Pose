@@ -154,20 +154,12 @@ def get_dataset(model):
 def run_validation(params):
 
     models = {}
-    pnp_solvers = {}
     draw_colors = {}
 
     # Initialize parameters
-    matrix_camera = np.zeros((3,3))
-    matrix_camera[0,0] = params["camera_settings"]['fx']
-    matrix_camera[1,1] = params["camera_settings"]['fy']
-    matrix_camera[0,2] = params["camera_settings"]['cx']
-    matrix_camera[1,2] = params["camera_settings"]['cy']
-    matrix_camera[2,2] = 1
     dist_coeffs = np.zeros((4,1))
+    assert "dist_coeffs" not in params["camera_settings"]
 
-    if "dist_coeffs" in params["camera_settings"]:
-        dist_coeffs = np.array(params["camera_settings"]['dist_coeffs'])
     config_detect = lambda: None
     config_detect.mask_edges = 1
     config_detect.mask_faces = 1
@@ -182,6 +174,7 @@ def run_validation(params):
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
         model_cm = load_model_cm(get_mesh_file(model))
+        model_cube = Cuboid3d(params['dimensions'][model])
 
         models[model] =\
             ModelData(
@@ -192,14 +185,6 @@ def run_validation(params):
 
         draw_colors[model] = \
             tuple(params["draw_colors"][model])
-        pnp_solvers[model] = \
-            CuboidPNPSolver(
-                model,
-                matrix_camera,
-                Cuboid3d(params['dimensions'][model]),
-                dist_coeffs=dist_coeffs
-            )
-
         dataset = get_dataset(model)
 
         def is_zero(x):
@@ -216,11 +201,19 @@ def run_validation(params):
             print(index)
             target = dataset[index]
 
+            matrix_camera = target["matrix_camera"]
+            pnp_solver = CuboidPNPSolver(
+                    model,
+                    matrix_camera,
+                    model_cube,
+                    dist_coeffs=dist_coeffs,
+                )
+
             img = target["img"]
             # Detect object
             results = ObjectDetector.detect_object_in_image(
                         models[model].net, 
-                        pnp_solvers[model],
+                        pnp_solver,
                         img,
                         config_detect
                         )
