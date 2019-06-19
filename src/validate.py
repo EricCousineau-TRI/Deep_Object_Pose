@@ -8,6 +8,7 @@ from __future__ import print_function, division
 from os.path import dirname, realpath, join
 import random
 import sys
+import cPickle as pickle
 
 import numpy as np
 import cv2
@@ -26,6 +27,7 @@ g_path2package = dirname(dirname(realpath(__file__)))
 sys.path.append(join(g_path2package, "src/inference"))
 sys.path.append(join(g_path2package, "src/training"))
 sys.path.append("{}/src/inference".format(g_path2package))
+
 weights_dir = "/home/eacousineau/Downloads/dope/weights"
 
 from cuboid import *
@@ -66,7 +68,7 @@ class Comparison(object):
     def greedy_match(self, pose_error_func):
         # Greedy match.
         self.est_to_gt_indices = np.array([-1] * self.num_est, dtype=int)
-        matched_gt = np.zeros(self.num_est, dtype=bool)
+        matched_gt = np.zeros(self.num_gt, dtype=bool)
         for i_est, pose_est in enumerate(self.pose_est_list):
             if np.all(matched_gt):
                 break
@@ -90,13 +92,25 @@ class Comparison(object):
             if pose_error < error_threshold:
                 est_accurate[i_est] = True
         num_tp = np.sum(est_accurate)
-        num_fp = self.num_est - num_tp
-        num_fn = np.sum(self.est_to_gt_indices == -1)
+        # num_fp = self.num_est - num_tp
+        # num_fn = np.sum(self.est_to_gt_indices == -1)
         # TODO(eric): Er... How do I compute true negatives???
         # For now, just gonna do F1 score...
-        precision = num_tp / (num_tp + num_fp)
-        recall = num_tp / (num_tp + num_fn)
-        f1_score = 2 * precision * recall / (precision + recall)
+        # Convention:
+        # - No detections, precision is 100%.
+        # - No labels, recall is 0%.
+        if self.num_est == 0:
+            precision = 1.
+        else:
+            precision = num_tp / self.num_est
+        if self.num_gt == 0:
+            recall = 0.
+        else:
+            recall = num_tp / self.num_gt
+        if (precision + recall) == 0:
+            f1_score = 0
+        else:
+            f1_score = 2 * precision * recall / (precision + recall)
         return f1_score
 
 
@@ -149,7 +163,7 @@ def run_validation(params):
                 dist_coeffs=dist_coeffs
             )
 
-        data_size = 100
+        data_size = 1000
         dataset = MultipleVertexJson(
             root="/home/eacousineau/Downloads/dope/fat/mixed/kitchen_0",
             objectsofinterest=model,
@@ -170,8 +184,8 @@ def run_validation(params):
         comp_list = []
 
         # All translations are in centimeters.
-        indices = [32, 33]
-        for index in indices:# tqdm(range(data_size)):
+        indices = range(data_size)
+        for index in tqdm(indices):
             print(index)
             target = dataset[index]
             # Yawr
@@ -209,7 +223,12 @@ def run_validation(params):
             comp.greedy_match(pose_error)
             comp_list.append(comp)
             # Just for kicks:
+            # TODO(eric): Figure out why this is so bad?
             print(comp.compute_accuracy(pose_error, 30))
+
+    save_file = join(g_path2package, "comp_list.pkl")
+    with open(save_file, "w") as f:
+        pickle.dump(comp_list, f)
 
 
 if __name__ == "__main__":
