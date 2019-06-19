@@ -20,7 +20,9 @@ from tqdm import tqdm
 import pyassimp
 
 import torchvision.transforms as transforms
-from pysixd.inout import load_ply
+
+from pyrr import Matrix33
+from pysixd.pose_error import add as add_metric
 
 # Import DOPE code
 g_path2package = dirname(dirname(realpath(__file__)))
@@ -35,18 +37,18 @@ from train import MultipleVertexJson
 
 
 def get_mesh_file(model):
-    return "/home/eacousineau/proj/tri/proj/perception/Dataset_Utilities/nvdu/data/ycb/aligned_cm/{}/google_16k/textured.ply".format(model)  # noqa
+    return "/home/eacousineau/proj/tri/proj/perception/Dataset_Utilities/nvdu/data/ycb/aligned_cm/{}/google_16k/textured.obj".format(model)  # noqa
 
 
-def load_model(filename):
+def load_model_cm(filename):
     assert filename.endswith(".obj")
     v = []
     with open(filename) as f:
         for line in f.readline():
-            if not f.startswith("v "):
+            if not line.startswith("v "):
                 continue
             v.append([float(x) for x in line[2:].split(" ")])
-    return np.asarray(v)
+    return {"pts": np.asarray(v)}
 
 
 def run_validation(params):
@@ -79,7 +81,7 @@ def run_validation(params):
 
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
-        model_6d = load_model(get_mesh_file(model))
+        model_6d = load_model_cm(get_mesh_file(model))
 
         models[model] =\
             ModelData(
@@ -131,16 +133,18 @@ def run_validation(params):
                         config_detect
                         )
 
-            for t, rot_q in zip(target["translations"], target["rot_quaternions"]):
-                print(t, rot_q)
+            # https://research.nvidia.com/sites/default/files/pubs/2018-06_Falling-Things/readme_0.txt
+            q_xyzw_gt_list, t_cm_gt_list = target["rot_quaternions"], target["translations"]
+            R_gt_list = [Matrix33.from_quaternion(q_xyzw) for q_xyzw in q_xyzw_gt_list]
 
             # Get stuff
             for i_r, result in enumerate(results):
                 if result["location"] is None:
                     continue
-                loc = result["location"]
-                ori = result["quaternion"]                    
-                print(i_r, loc, ori)
+                t_cm_est = result["location"]
+                q_xyzw_est = result["quaternion"]
+                R_est = Matrix33.from_quaternion(q_xyzw_est)
+                print(i_r, t_cm_est, R_est)
 
 
 if __name__ == "__main__":
@@ -152,7 +156,7 @@ if __name__ == "__main__":
         params = yaml.safe_load(stream)
     print('    Parameters loaded.')
 
-    # run_validation(params)
-    import sys, trace
-    tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr", sys.prefix])
-    tracer.runfunc(run_validation, params)
+    run_validation(params)
+    # import sys, trace
+    # tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr", sys.prefix])
+    # tracer.runfunc(run_validation, params)
