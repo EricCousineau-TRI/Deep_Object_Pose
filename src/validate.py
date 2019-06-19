@@ -173,6 +173,7 @@ def run_validation(params):
 
     # For each object to detect, load network model, create PNP solver, and start ROS publishers
     for model in params['weights']:
+        print("model: {}".format(model))
         model_cm = load_model_cm(get_mesh_file(model))
         model_cube = Cuboid3d(params['dimensions'][model])
 
@@ -198,7 +199,6 @@ def run_validation(params):
         # All translations are in centimeters.
         indices = range(len(dataset))
         for index in tqdm(indices):
-            print(index)
             target = dataset[index]
 
             matrix_camera = target["matrix_camera"]
@@ -242,13 +242,11 @@ def run_validation(params):
             comp = Comparison(pose_est_list, pose_gt_list)
             comp.greedy_match(pose_error)
             comp_list.append(comp)
-            # Just for kicks:
-            # TODO(eric): Figure out why this is so bad?
-            print(comp.compute_metrics(pose_error, 30))
 
-    save_file = join(g_path2package, "comp_list.pkl")
-    with open(save_file, "w") as f:
-        pickle.dump(comp_list, f)
+        save_file = join(g_path2package, "comp_list_{}.pkl".format(model))
+        with open(save_file, "w") as f:
+            pickle.dump(comp_list, f)
+        print(" - save: {}".format(save_file))
 
 
 if __name__ == "__main__":
