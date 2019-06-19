@@ -11,6 +11,7 @@ import sys
 import cPickle as pickle
 
 import numpy as np
+import pandas as pd
 import cv2
 import yaml
 
@@ -80,7 +81,18 @@ class Comparison(object):
             self.est_to_gt_indices[i_gt] = i_gt
             matched_gt[i_gt] = True
 
-    def compute_accuracy(self, pose_error_func, error_threshold):
+    dtype = np.dtype([
+        ('num_est', float),
+        ('num_gt', float),
+        ('num_tp', float),
+        ('num_fp', float),
+        ('num_fn', float),
+        ('precision', float),
+        ('recall', float),
+        ('f1_score', float),
+    ])
+
+    def compute_metrics(self, pose_error_func, error_threshold):
         assert self.est_to_gt_indices is not None
         est_accurate = np.zeros(self.num_est, dtype=bool)
         for i_est, pose_est in enumerate(self.pose_est_list):
@@ -92,8 +104,8 @@ class Comparison(object):
             if pose_error < error_threshold:
                 est_accurate[i_est] = True
         num_tp = np.sum(est_accurate)
-        # num_fp = self.num_est - num_tp
-        # num_fn = np.sum(self.est_to_gt_indices == -1)
+        num_fp = self.num_est - num_tp
+        num_fn = np.sum(self.est_to_gt_indices == -1)
         # TODO(eric): Er... How do I compute true negatives???
         # For now, just gonna do F1 score...
         # Convention:
@@ -111,7 +123,16 @@ class Comparison(object):
             f1_score = 0
         else:
             f1_score = 2 * precision * recall / (precision + recall)
-        return f1_score
+        return np.rec.array((
+            self.num_est,
+            self.num_gt,
+            num_tp,
+            num_fp,
+            num_fn,
+            precision,
+            recall,
+            f1_score,
+        ), dtype=self.dtype)
 
 
 def run_validation(params):
@@ -188,10 +209,6 @@ def run_validation(params):
         for index in tqdm(indices):
             print(index)
             target = dataset[index]
-            # Yawr
-            if is_zero(target["translations"]) and is_zero(target["rot_quaternions"]):
-                print("no ground truth...")
-                continue
 
             img = target["img"]
             # Detect object
@@ -203,13 +220,17 @@ def run_validation(params):
                         )
 
             # https://research.nvidia.com/sites/default/files/pubs/2018-06_Falling-Things/readme_0.txt
-            t_cm_gt_list = target["translations"].numpy()
-            R_gt_list = [
-                np.array(Matrix33.from_quaternion(q_xyzw))
-                for q_xyzw in target["rot_quaternions"].numpy()]
             pose_gt_list = []
-            for R, t_cm in zip(R_gt_list, t_cm_gt_list):
-                pose_gt_list.append(Pose(R, t_cm))
+            # Dunno why (0, n) tensors weren't used, but meh.
+            if is_zero(target["translations"]) and is_zero(target["rot_quaternions"]):
+                pass
+            else:
+                t_cm_gt_list = target["translations"].numpy()
+                R_gt_list = [
+                    np.array(Matrix33.from_quaternion(q_xyzw))
+                    for q_xyzw in target["rot_quaternions"].numpy()]
+                for R, t_cm in zip(R_gt_list, t_cm_gt_list):
+                    pose_gt_list.append(Pose(R, t_cm))
 
             est_list = [est for est in results if est["location"] is not None]
             pose_est_list = []
