@@ -250,8 +250,6 @@ def run_validation(params):
 
 
 def main():
-    torch._C._cuda_init()
-
     # set the manual seed.
     seed = 0
     random.seed(seed)
@@ -271,7 +269,7 @@ def main():
 
 if __name__ == "__main__":
     sys.stdout = sys.stderr
-    # main()
-    import sys, trace
-    tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr"]) #, sys.prefix]) # "/home/eacousineau/proj/tri/proj/perception/Deep_Object_Pose/build"])
-    tracer.runfunc(main)
+    main()
+    # import sys, trace
+    # tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr"]) #, sys.prefix])
+    # tracer.runfunc(main)

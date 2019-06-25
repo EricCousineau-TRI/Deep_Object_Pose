@@ -11,8 +11,8 @@ PyYAML==3.13
 rospkg==1.1.4
 scipy==1.1.0
 simplejson==3.16.0
-torch==0.4.0
-torchvision==0.2.1
+https://download.pytorch.org/whl/cu100/torch-1.1.0-cp27-cp27mu-linux_x86_64.whl
+https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
 tqdm==4.25.0
 
 
