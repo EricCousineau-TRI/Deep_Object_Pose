@@ -1117,7 +1117,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--batchsize', 
         type=int, 
-        default=16, #128, 
+        default=32, #128, 
         help='input batch size')
 
     parser.add_argument('--imagesize', 
@@ -1340,13 +1340,17 @@ if __name__ == "__main__":
 
     nb_update_network = 0
 
+    def tmp(*args):
+        pass
+        #print("TMP: ", *args)
+
     def _monitor(collection):
         it = iter(collection)
         try:
             while True:
-                print("TMP: Next")
+                tmp("Next")
                 item = next(it)
-                print("TMP:  - Done")
+                tmp(" - Done")
                 yield item
         except StopIteration:
             pass
@@ -1361,13 +1365,13 @@ if __name__ == "__main__":
 
         for batch_idx, targets in enumerate(_monitor(tqdm(loader))):
 
-            print("TMP: to(device)")
+            tmp("to(device)")
             data = Variable(targets['img'].to(device))
             
-            print("TMP: inference")
+            tmp("inference")
             output_belief, output_affinities = net(data)
                            
-            print("TMP: more conversion")
+            tmp("more conversion")
             if train:
                 optimizer.zero_grad()
             target_belief = Variable(targets['beliefs'].to(device))        
@@ -1375,7 +1379,7 @@ if __name__ == "__main__":
 
             loss = None
             
-            print("TMP: belief loss")
+            tmp("belief loss")
             # Belief maps loss
             for l in output_belief: #output, each belief map layers. 
                 if loss is None:
@@ -1384,13 +1388,13 @@ if __name__ == "__main__":
                     loss_tmp = ((l - target_belief) * (l-target_belief)).mean()
                     loss += loss_tmp
             
-            print("TMP: affinity loss")
+            tmp("affinity loss")
             # Affinities loss
             for l in output_affinities: #output, each belief map layers. 
                 loss_tmp = ((l - target_affinity) * (l-target_affinity)).mean()
                 loss += loss_tmp 
 
-            print("TMP: propagate")
+            tmp("propagate")
             if train:
                 loss.backward()
                 optimizer.step()
@@ -1403,7 +1407,7 @@ if __name__ == "__main__":
 
             with open (opt.outf+namefile,'a') as file:
                 s = '{}, {},{:.15f}\n'.format(
-                    epoch,batch_idx,loss.data[0]) 
+                    epoch,batch_idx,loss.item()) 
                 # print (s)
                 file.write(s)
 
@@ -1411,16 +1415,16 @@ if __name__ == "__main__":
                 if batch_idx % opt.loginterval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
                         epoch, batch_idx * len(data), len(loader.dataset),
-                        100. * batch_idx / len(loader), loss.data[0]))
+                        100. * batch_idx / len(loader), loss.item()))
             else:
                 if batch_idx % opt.loginterval == 0:
                     print('Test Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
                         epoch, batch_idx * len(data), len(loader.dataset),
-                        100. * batch_idx / len(loader), loss.data[0]))
+                        100. * batch_idx / len(loader), loss.item()))
 
             # break
             if not opt.nbupdates is None and nb_update_network > int(opt.nbupdates):
-                print("TMP: save")
+                tmp("save")
                 torch.save(net.state_dict(), '{}/net_{}.pth'.format(opt.outf, opt.namefile))
                 break
 
