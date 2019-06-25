@@ -249,8 +249,8 @@ def run_validation(params):
         print(" - save: {}".format(save_file))
 
 
-if __name__ == "__main__":
-    sys.stdout = sys.stderr
+def main():
+    torch._C._cuda_init()
 
     # set the manual seed.
     seed = 0
@@ -267,6 +267,11 @@ if __name__ == "__main__":
     print('    Parameters loaded.')
 
     run_validation(params)
-    # import sys, trace
-    # tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr", sys.prefix])
-    # tracer.runfunc(run_validation, params)
+
+
+if __name__ == "__main__":
+    sys.stdout = sys.stderr
+    # main()
+    import sys, trace
+    tracer = trace.Trace(trace=1, count=0, ignoredirs=["/usr"]) #, sys.prefix]) # "/home/eacousineau/proj/tri/proj/perception/Deep_Object_Pose/build"])
+    tracer.runfunc(main)
